@@ -1,0 +1,117 @@
+/* src/overrides.css
+   Small set of UI overrides to clean up the look of new pages and controls
+*/
+
+:root {
+  --accent: #6ea0ff;
+  --muted: #cfcfe0;
+}
+
+/* Header nav: use app-nav-link to style NavLink instances (was showing as default anchor) */
+.app-header .app-nav-link,
+.app-nav-link {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.35rem 0.7rem;
+  border-radius: 8px;
+  display: inline-block;
+  transition: background 120ms ease, color 120ms ease;
+  font-weight: 600;
+}
+.app-nav-link:hover {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--accent);
+  text-decoration: none;
+}
+.app-nav-link.active {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--accent);
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,0.25);
+}
+
+/* Header right controls */
+.notification-bell {
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+}
+.notification-bell:hover {
+  background: rgba(255,255,255,0.02);
+}
+.notification-bell .badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #ff6b6b;
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.link-button {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.06);
+  color: inherit;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Notification panel */
+.notification-panel {
+  position: absolute;
+  left: 1rem;
+  top: 64px;
+  width: 320px;
+  max-height: 60vh;
+  overflow: auto;
+  background: linear-gradient(180deg, rgba(20,24,31,0.98), rgba(10,12,18,0.98));
+  border: 1px solid rgba(255,255,255,0.04);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+  padding: 0.85rem;
+  border-radius: 10px;
+  z-index: 60;
+}
+.notification-panel h2 { margin-top: 0; margin-bottom: 0.4rem; }
+.notification-panel ul { margin: 0; padding-left: 0; list-style: none; }
+.notification-panel li { padding: 0.45rem 0.25rem; border-bottom: 1px solid rgba(255,255,255,0.02); }
+
+/* Forms & inputs – consistent look for newly added pages */
+.form-field { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; }
+.form-input, textarea, select { border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); padding: 0.5rem; background: transparent; color: inherit; }
+textarea { min-height: 3.6rem; }
+
+/* Make the app body layout a bit tighter/consistent */
+.app-body { display: flex; flex-direction: column; gap: 1.25rem; align-items: stretch; }
+.app-nav { display: flex; gap: 0.5rem; align-items: center; padding: 0.6rem 0.9rem; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.02); }
+
+/* Small responsive fix for very narrow windows (mobile) */
+@media (max-width: 640px) {
+  .app-body { flex-direction: column; }
+  .notification-panel { left: 8px; right: 8px; width: auto; top: 72px; }
+  .app-nav { min-width: auto; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.02); }
+}
+
+/* Page container tweaks to avoid content being pushed to the right */
+.app-content {
+  padding: 1rem 0.5rem;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+/* Employee list page: show list + create form side-by-side on wide screens */
+.employee-list-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 1rem;
+}
+.employee-list-grid .card { margin: 0; }
+
+@media (max-width: 960px) {
+  .employee-list-grid { grid-template-columns: 1fr; }
+}

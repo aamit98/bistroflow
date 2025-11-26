@@ -1,0 +1,96 @@
+# Backend (Java/Spring Boot)
+backend/adss-backend/target/
+backend/adss-backend/out/
+backend/adss-backend/.class
+backend/adss-backend/*.jar
+backend/adss-backend/*.war
+backend/adss-backend/.gradle/
+backend/adss-backend/build/
+backend/adss-backend/.idea/
+backend/adss-backend/*.iml
+backend/adss-backend/*.iws
+backend/adss-backend/*.ipr
+backend/adss-backend/.DS_Store
+backend/adss-backend/.settings/
+backend/adss-backend/.classpath
+backend/adss-backend/.project
+backend/adss-backend/bin/
+
+# Frontend (Node.js/React)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+frontend/.cache/
+frontend/.parcel-cache
+frontend/coverage/
+frontend/.vscode/
+frontend/.idea/
+frontend/*.iml
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-workspace
+.DS_Store
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/
+InventoryHR.db
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# npm
+npm-debug.log
+yarn-error.log
+.npmrc
+
+# misc
+.cache
+.parcel-cache
+dist/
+build/
+out/
+
+# Testing
+coverage/
+*.lcov
+
+# Package managers
+pnpm-lock.yaml
+yarn.lock
+
+# IDE preferences
+.editorconfig
+
+# Temporary files
+*.tmp
+*.temp
+*~
