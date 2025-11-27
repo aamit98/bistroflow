@@ -6,6 +6,7 @@ import {
   decideTimeOffRequestApi,
   type TimeOffRequest,
 } from '../api/TimeOffApi'
+import { subscribeToBranch, type NotificationMessage } from '../api/NotificationSocket'
 
 const HrTimeOffRequestsPage: React.FC = () => {
   const { branchId } = useParams<{ branchId: string }>()
@@ -45,6 +46,16 @@ const HrTimeOffRequestsPage: React.FC = () => {
       return
     }
     void load()
+
+    // Subscribe to real-time branch notifications
+    const handleBranchNotification = (msg: NotificationMessage) => {
+      if (msg.type === 'TIME_OFF_REQUEST') {
+        // A new time-off request was submitted, refresh the list
+        console.log('[HrTimeOff] Received new time-off request notification, refreshing...')
+        void load()
+      }
+    }
+    subscribeToBranch(Number(branchId), handleBranchNotification)
   }, [branchId, statusFilter, employee])
 
   const handleDecision = async (id: number, approve: boolean) => {
