@@ -74,14 +74,24 @@ public class AuthController {
 
         EmployeeToSend employee = (EmployeeToSend) empRes.getReturnValue();
 
-        // 4) Build claims for JWT (from account + employee)
+        // 4) Build claims for JWT (from employee details)
+        // NOTE: We deliberately derive the HR manager flag and branch ID from the
+        // legacy HR system (EmployeeToSend) rather than the account table. The
+        // account table may not always be in sync with the legacy system and
+        // caused the HR claim to be missing or incorrect, resulting in 403s on HR
+        // endpoints. See PROBLEMS_AND_SOLUTIONS.md for details.
         List<String> roleNames = account.getRoles() != null
                 ? account.getRoles()
                 : Collections.emptyList();
 
         Map<String, Object> claims = new HashMap<>();
-        claims.put("hrManager", account.isHrManager());
-        claims.put("branchId", account.getBranchId());
+        // Use the employee's HR manager flag so that the JWT reflects the actual
+        // HR status from the legacy system. This ensures that HR managers are
+        // properly authorized on the backend.
+        claims.put("hrManager", employee.isHRManager);
+        // Use the employee's branch ID from the legacy system instead of the
+        // account's branchId to avoid mismatches.
+        claims.put("branchId", employee.branchId);
         claims.put("roles", roleNames);
 
         String token = jwtService.generateToken(
@@ -89,7 +99,7 @@ public class AuthController {
                 claims
         );
 
-        System.out.println("[AuthController] Token generated for employeeId: " + employeeId + ", isHrManager: " + account.isHrManager());
+        System.out.println("[AuthController] Token generated for employeeId: " + employeeId + ", isHrManager: " + employee.isHRManager);
 
         // 5) Build response DTO for frontend
         LoginEmployeeDto dto = new LoginEmployeeDto(
@@ -135,10 +145,10 @@ public class AuthController {
                 "message", "No authentication in context"
             ));
         }
-        
+
         Object principal = auth.getPrincipal();
         Object credentials = auth.getCredentials();
-        
+
         return ResponseEntity.ok(Map.of(
             "authenticated", auth.isAuthenticated(),
             "principal", principal,

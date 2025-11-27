@@ -117,21 +117,44 @@ const EmployeeListPage: React.FC = () => {
       {loading && <p>Loading employees…</p>}
       {error && <p className="form-error">{error}</p>}
 
-      <ul>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+        gap: '1.5rem',
+        marginBottom: '3rem'
+      }}>
         {employees.map((emp) => (
-          <li key={emp.id}>
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => handleViewDetails(emp.id)}
+          <div 
+            key={emp.id}
+            className="card"
+            style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
+            onClick={() => handleViewDetails(emp.id)}
+          >
+            <h4 style={{ margin: '0 0 0.5rem 0' }}>{emp.name}</h4>
+            <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#999' }}>
+              Employee #{emp.id}
+            </p>
+            <div style={{ marginTop: '0.75rem' }}>
+              <p style={{ margin: '0.25rem 0', fontSize: '0.85rem' }}>
+                <strong>Roles:</strong> {emp.roles.length > 0 ? emp.roles.join(', ') : '—'}
+              </p>
+              <p style={{ margin: '0.25rem 0', fontSize: '0.85rem' }}>
+                <strong>Branch:</strong> {emp.branchId}
+              </p>
+            </div>
+            <button 
+              type="button" 
+              style={{ marginTop: '0.75rem', width: '100%' }}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleViewDetails(emp.id)
+              }}
             >
-              {emp.name} (#{emp.id})
+              View Details
             </button>
-            {' · '}
-            Roles: {emp.roles.join(', ')}
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
 
       <section className="card" style={{ marginTop: '2rem' }}>
         <h3 className="card-title">Add employee</h3>
@@ -253,6 +276,37 @@ const EmployeeListPage: React.FC = () => {
                 }
                 required
               />
+            </label>
+
+            <label className="form-field" style={{ gridColumn: '1 / -1' }}>
+              <span>Roles (select all that apply)</span>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                {['MANAGER', 'CASHIER', 'STOREKEEPER'].map((role) => (
+                  <label key={role} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={(newEmployee.roles as string[])?.includes(role) ?? false}
+                      onChange={(e) => {
+                        setNewEmployee((prev) => {
+                          const currentRoles = (prev.roles as string[]) ?? []
+                          if (e.target.checked) {
+                            return {
+                              ...prev,
+                              roles: [...currentRoles, role],
+                            }
+                          } else {
+                            return {
+                              ...prev,
+                              roles: currentRoles.filter((r) => r !== role),
+                            }
+                          }
+                        })
+                      }}
+                    />
+                    {role}
+                  </label>
+                ))}
+              </div>
             </label>
           </div>
 

@@ -25,9 +25,17 @@ public class HrEmployeeManagementController {
     }
 
     private boolean isHr(Authentication auth) {
-        if (auth == null) return false;
+        if (auth == null) {
+            System.out.println("[DEBUG] isHr: auth is null");
+            return false;
+        }
         Object cred = auth.getCredentials();
-        if (cred instanceof Boolean b) return b;
+        System.out.println("[DEBUG] isHr: credentials type = " + (cred != null ? cred.getClass().getName() : "null") + ", value = " + cred);
+        if (cred instanceof Boolean b) {
+            System.out.println("[DEBUG] isHr: credentials is Boolean = " + b);
+            return b;
+        }
+        System.out.println("[DEBUG] isHr: credentials is not Boolean, returning false");
         return false;
     }
 
@@ -75,10 +83,22 @@ public class HrEmployeeManagementController {
                     .body(Map.of("error", res.getErrorMsg()));
         }
 
-        @SuppressWarnings("unchecked")
-        List<EmployeeToSend> employees = (List<EmployeeToSend>) res.getReturnValue();
+        // The service returns an array, not a List
+        Object returnValue = res.getReturnValue();
+        EmployeeToSend[] employeesArray;
+        
+        if (returnValue instanceof EmployeeToSend[]) {
+            employeesArray = (EmployeeToSend[]) returnValue;
+        } else if (returnValue instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<EmployeeToSend> list = (List<EmployeeToSend>) returnValue;
+            employeesArray = list.toArray(new EmployeeToSend[0]);
+        } else {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Unexpected return type from service"));
+        }
 
-        List<Map<String, Object>> body = employees.stream()
+        List<Map<String, Object>> body = Arrays.stream(employeesArray)
                 .map(e -> {
                     Map<String, Object> dto = new LinkedHashMap<>();
                     dto.put("id", e.id);

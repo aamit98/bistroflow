@@ -50,9 +50,17 @@ public class TimeOffRequestController {
     }
 
     private boolean isHrManager(Authentication auth) {
-        if (auth == null) return false;
+        if (auth == null) {
+            System.out.println("[DEBUG TimeOff] isHrManager: auth is null");
+            return false;
+        }
         Object cred = auth.getCredentials();
-        if (cred instanceof Boolean b) return b;
+        System.out.println("[DEBUG TimeOff] isHrManager: credentials type = " + (cred != null ? cred.getClass().getName() : "null") + ", value = " + cred);
+        if (cred instanceof Boolean b) {
+            System.out.println("[DEBUG TimeOff] isHrManager: credentials is Boolean = " + b);
+            return b;
+        }
+        System.out.println("[DEBUG TimeOff] isHrManager: credentials is not Boolean, returning false");
         return false;
     }
 
