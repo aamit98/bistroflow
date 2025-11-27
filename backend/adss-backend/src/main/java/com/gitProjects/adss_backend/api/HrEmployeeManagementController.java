@@ -4,9 +4,12 @@ import GlobalClasses.EmployeeToSend;
 import GlobalClasses.Role;
 import ServiceLayer.HR.WrapperService;
 import ServiceLayer.Response;
+import com.gitProjects.adss_backend.auth.EmployeeAccount;
+import com.gitProjects.adss_backend.auth.EmployeeAccountRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -17,11 +20,17 @@ import java.util.stream.Collectors;
 public class HrEmployeeManagementController {
 
     private final WrapperService wrapperService;
+    private final EmployeeAccountRepository accountRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public HrEmployeeManagementController(
-            WrapperService wrapperService
+            WrapperService wrapperService,
+            EmployeeAccountRepository accountRepository,
+            PasswordEncoder passwordEncoder
     ) {
         this.wrapperService = wrapperService;
+        this.accountRepository = accountRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     private boolean isHr(Authentication auth) {
@@ -196,6 +205,22 @@ public class HrEmployeeManagementController {
         if (res.errorOccurred()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", res.getErrorMsg()));
+        }
+
+        // Also save the account to H2 database so the employee can log in
+        try {
+            EmployeeAccount account = new EmployeeAccount();
+            account.setEmployeeId(body.id);
+            account.setUsername("employee" + body.id); // username format
+            account.setPasswordHash(passwordEncoder.encode(body.password));
+            account.setHrManager(false); // New employees are not HR by default
+            account.setBranchId(body.branchId);
+            account.setRoles(body.roles != null ? body.roles : new ArrayList<>());
+            accountRepository.save(account);
+            System.out.println("[DEBUG] Account saved for employee " + body.id);
+        } catch (Exception e) {
+            System.out.println("[DEBUG] Warning: Could not save account for employee " + body.id + ": " + e.getMessage());
+            // Don't fail the employee creation if account save fails, but log it
         }
 
         return ResponseEntity.status(HttpStatus.CREATED)
