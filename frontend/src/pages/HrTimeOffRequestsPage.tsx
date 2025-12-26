@@ -99,7 +99,6 @@ const HrTimeOffRequestsPage: React.FC = () => {
 
     const handleBranchNotification = (msg: NotificationMessage) => {
       if (msg.type === 'TIME_OFF_REQUEST') {
-        console.log('[HrTimeOff] Received new time-off request notification, showing toast...')
         addToast(`Employee #${msg.employeeId} submitted a time-off request!`, 'success')
         void load(0)
       }
