@@ -28,16 +28,21 @@ cd backend\adss-backend
 
 ## 🚀 Start the Servers
 
-### Configure JWT secret (one-time)
+### Configure JWT secret (one-time setup)
+
+**Recommended: Use the setup script** (sets it permanently):
+```powershell
+.\setup-env.ps1
+```
+
+**Or manually** (temporary for current session):
 ```powershell
 $bytes = New-Object byte[] 32
 [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
 $env:ADSS_JWT_SECRET = [Convert]::ToBase64String($bytes)
-# Optional: persist for future shells
-setx ADSS_JWT_SECRET $env:ADSS_JWT_SECRET
 ```
 
-> The backend refuses to start without `ADSS_JWT_SECRET`. Generate a new value per environment and keep it secret.
+> **Important**: The backend requires `ADSS_JWT_SECRET` to start. The setup script sets it permanently so you don't need to configure it again.
 
 ### Terminal 1: Start Backend
 ```powershell

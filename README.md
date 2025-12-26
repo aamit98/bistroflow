@@ -194,17 +194,18 @@ BranchStock (1) ──→ (N) StockTransaction
    cd bistroflow
    ```
 
-2. **Set up environment variables**
-   ```bash
-   # Generate JWT secret (one-time setup)
-   # Windows PowerShell:
+2. **Set up environment variables** (one-time setup)
+   ```powershell
+   # Windows PowerShell (recommended):
+   .\setup-env.ps1
+   
+   # Or manually:
    $bytes = New-Object byte[] 32
    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-   $env:ADSS_JWT_SECRET = [Convert]::ToBase64String($bytes)
-   
-   # Linux/Mac:
-   export ADSS_JWT_SECRET=$(openssl rand -base64 32)
+   [System.Environment]::SetEnvironmentVariable("ADSS_JWT_SECRET", [Convert]::ToBase64String($bytes), "User")
    ```
+   
+   > The setup script automatically generates and sets the JWT secret permanently. Restart your terminal after running it.
 
 3. **Start the backend**
    ```bash
