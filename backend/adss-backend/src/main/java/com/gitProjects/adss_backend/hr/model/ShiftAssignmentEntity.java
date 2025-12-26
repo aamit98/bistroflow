@@ -2,6 +2,7 @@ package com.gitProjects.adss_backend.hr.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(
@@ -32,6 +33,12 @@ public class ShiftAssignmentEntity {
     @Column(name = "role_code")
     private String role; // e.g. "CASHIER", "COOK"
 
+    @Column(name = "confirmed", nullable = false)
+    private boolean confirmed = false;
+
+    @Column(name = "confirmed_at")
+    private LocalDateTime confirmedAt;
+
     // getters & setters
     public Long getId() { return id; }
 
@@ -49,4 +56,10 @@ public class ShiftAssignmentEntity {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+
+    public boolean isConfirmed() { return confirmed; }
+    public void setConfirmed(boolean confirmed) { this.confirmed = confirmed; }
+
+    public LocalDateTime getConfirmedAt() { return confirmedAt; }
+    public void setConfirmedAt(LocalDateTime confirmedAt) { this.confirmedAt = confirmedAt; }
 }

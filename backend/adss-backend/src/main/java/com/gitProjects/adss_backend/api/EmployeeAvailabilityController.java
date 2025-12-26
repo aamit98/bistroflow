@@ -5,6 +5,7 @@ import com.gitProjects.adss_backend.auth.EmployeeAccountRepository;
 import com.gitProjects.adss_backend.hr.model.BranchScheduleStatusEntity;
 import com.gitProjects.adss_backend.hr.model.NotificationEntity;
 import com.gitProjects.adss_backend.hr.repo.NotificationRepository;
+import com.gitProjects.adss_backend.service.HrAccessValidationService;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import com.gitProjects.adss_backend.hr.model.EmployeeAvailabilityEntity;
 import com.gitProjects.adss_backend.hr.model.ShiftEnums;
@@ -44,6 +45,7 @@ public class EmployeeAvailabilityController {
         private final EmployeeAccountRepository employeeAccountRepo;
         private final NotificationRepository notificationRepository;
         private final SimpMessagingTemplate messagingTemplate;
+        private final HrAccessValidationService accessValidation;
 
     // Cutoff: Thursday 23:59 of the week before the target week
     private static final DayOfWeek CUTOFF_DAY = DayOfWeek.THURSDAY;
@@ -54,12 +56,14 @@ public class EmployeeAvailabilityController {
                         BranchScheduleStatusRepository scheduleStatusRepo,
                         EmployeeAccountRepository employeeAccountRepo,
                         NotificationRepository notificationRepository,
-                        SimpMessagingTemplate messagingTemplate) {
+                        SimpMessagingTemplate messagingTemplate,
+                        HrAccessValidationService accessValidation) {
                 this.availabilityRepo = availabilityRepo;
                 this.scheduleStatusRepo = scheduleStatusRepo;
                 this.employeeAccountRepo = employeeAccountRepo;
                 this.notificationRepository = notificationRepository;
                 this.messagingTemplate = messagingTemplate;
+                this.accessValidation = accessValidation;
         }
 
     // DTO used by frontend
@@ -109,6 +113,15 @@ public class EmployeeAvailabilityController {
                     .body(Map.of("error", "Employee not found"));
         }
         Integer branchId = empOpt.get().getBranchId();
+        
+        // If HR manager viewing another employee's availability, validate access to their branch
+        if (Boolean.TRUE.equals(isHrManager) && !currentId.equals(employeeId) && branchId != null) {
+            String accessError = accessValidation.validateBranchAccess(auth, branchId);
+            if (accessError != null) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", accessError));
+            }
+        }
 
         // Fetch availability slots
         List<EmployeeAvailabilityEntity> entities =

@@ -1,6 +1,8 @@
 package com.gitProjects.adss_backend.hr.repo;
 
 import com.gitProjects.adss_backend.hr.model.TimeOffRequestEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
@@ -15,7 +17,17 @@ public interface TimeOffRequestRepository extends JpaRepository<TimeOffRequestEn
             TimeOffRequestEntity.Status status
     );
 
-    List<TimeOffRequestEntity> findByBranchIdAndDateBetween(
+    Page<TimeOffRequestEntity> findByBranchIdAndStatus(
+            Integer branchId,
+            TimeOffRequestEntity.Status status,
+            Pageable pageable
+    );
+
+    Page<TimeOffRequestEntity> findByEmployeeId(Integer employeeId, Pageable pageable);
+
+    long countByBranchIdAndStatus(Integer branchId, TimeOffRequestEntity.Status status);
+
+        List<TimeOffRequestEntity> findByBranchIdAndDateBetween(
             Integer branchId,
             LocalDate start,
             LocalDate end

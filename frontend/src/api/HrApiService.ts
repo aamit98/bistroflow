@@ -1,16 +1,18 @@
 // src/api/HrApiService.ts
 import { apiClient } from "./ApiClient";
+import type { PagedResponse } from "./types";
 
 export interface Employee {
   id: number
   name: string
-  branchId: number
+  branchId: number | null  // null for super admin (all branches)
   bankCode: number
   bankBranchCode: number
   bankAccount: number
   hourlyRate: number
   monthlyRate: number
   isHRManager: boolean
+  isSuperAdmin: boolean
   roles: string[]
   startDate: string
   termsOfEmployment: string
@@ -26,9 +28,51 @@ export interface LoginResponse {
   employee: Employee
 }
 
-export interface EmployeeAvailability {
+export interface EmployeeProfileSummary {
+  employeeId: number
+  name: string
+  branchId: number
+  roles: string[]
+  hrManager: boolean
+  hourlyRate: number
+  monthlyRate: number
+  termsOfEmployment: string
+  startDate: string
+  bankCode: number
+  bankBranchCode: number
+  bankAccount: number
+}
+
+export interface EmployeeAvailabilitySlot {
+  dayOfWeek: string
+  shiftType: string
+  available: boolean
+}
+
+export interface EmployeeAvailabilitySection {
   weekStart: string
-  slots: { day: string; shift: string }[]
+  slots: EmployeeAvailabilitySlot[]
+  submitted: boolean
+}
+
+export interface EmployeeShiftView {
+  assignmentId: number | null
+  shiftDate: string
+  shiftType: string
+  status: string
+  branchId: number
+}
+
+export interface EmployeeScheduleSection {
+  weekStart: string
+  weekEnd: string
+  shifts: EmployeeShiftView[]
+}
+
+export interface EmployeeProfileResponse {
+  profile: EmployeeProfileSummary
+  availability: EmployeeAvailabilitySection
+  schedule: EmployeeScheduleSection
 }
 
 export const loginApi = (payload: LoginRequest) =>
@@ -38,12 +82,16 @@ export const logoutApi = (employeeId: number) =>
   apiClient.post('/auth/logout', { employeeId })
 
 // HR: get employees in a branch (enriched profiles)
-export const getEmployeesInBranchApi = (branchId: number) =>
-  apiClient.get<Employee[]>(`/hr/branches/${branchId}/employees`)
+export const getEmployeesInBranchApi = (branchId: number, page = 0, size = 25) =>
+  apiClient.get<PagedResponse<Employee>>(`/hr/branches/${branchId}/employees`, {
+    params: { page, size },
+  })
 
-// HR: get single employee details (profile, roles, bank, rates, etc.)
-export const getEmployeeDetailsApi = (employeeId: number) =>
-  apiClient.get<Employee>(`/employees/${employeeId}`)
+// HR: get single employee profile (with availability + schedule)
+export const getEmployeeDetailsApi = (employeeId: number, weekStart: string) =>
+  apiClient.get<EmployeeProfileResponse>(`/employees/${employeeId}`, {
+    params: { weekStart },
+  })
 
 // HR: add a new employee to a branch
 export interface CreateEmployeePayload {
@@ -64,17 +112,6 @@ export interface CreateEmployeePayload {
 export const createEmployeeApi = (branchId: number, payload: CreateEmployeePayload) =>
   apiClient.post(`/hr/branches/${branchId}/employees`, payload)
 
-// HR: get employee weekly availability (manager view)
-export const getEmployeeAvailabilityApi = (employeeId: number, weekStart: string) =>
-  apiClient.get<EmployeeAvailability>(`/employees/${employeeId}/availability`, {
-    params: { weekStart },
-  })
-
-export const updateEmployeeAvailabilityApi = (
-  employeeId: number,
-  availability: EmployeeAvailability,
-) =>
-  apiClient.put<EmployeeAvailability>(
-    `/employees/${employeeId}/availability`,
-    availability,
-  )
+// HR: delete an employee from a branch
+export const deleteEmployeeApi = (branchId: number, employeeId: number) =>
+  apiClient.delete(`/hr/branches/${branchId}/employees/${employeeId}`)

@@ -1,10 +1,14 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './security/AuthContext'
+import { ToastProvider } from './components/ToastContext'
+import { BranchProvider } from './context/BranchContext'
+import ToastContainer from './components/ToastContainer'
 import DebugPanel from './components/DebugPanel'
 
 import HrLayout from './layout/HrLayout'
 import EmployeeLayout from './layout/EmployeeLayout'
+import AdminLayout from './layout/AdminLayout'
 
 import LoginPage from './pages/LoginPage'
 import HrDashboardPage from './pages/HrDashboardPage'
@@ -16,19 +20,49 @@ import HrBranchSchedulePage from './pages/HrBranchSchedulePage'
 import EmployeeProfilePage from './pages/EmployeeProfilePage'
 import EmployeeRequestsPage from './pages/EmployeeRequestsPage'
 import HrTimeOffRequestsPage from './pages/HrTimeOffRequestsPage'
+import BranchSettingsPage from './pages/BranchSettingsPage'
+import InventoryPage from './pages/InventoryPage'
+import RoleManagerPage from './pages/RoleManagerPage'
+import AdminDashboardPage from './pages/AdminDashboardPage'
+import AdminHrManagersPage from './pages/AdminHrManagersPage'
+import AdminRestaurantsPage from './pages/AdminRestaurantsPage'
+import AdminBranchesPage from './pages/AdminBranchesPage'
+import AdminAnalyticsPage from './pages/AdminAnalyticsPage'
+import AdminSettingsPage from './pages/AdminSettingsPage'
+import AdminActivityLogsPage from './pages/AdminActivityLogsPage'
+
+// Wrapper component for HR routes with branch context
+const HrRoutesWrapper: React.FC = () => (
+  <BranchProvider>
+    <HrLayout />
+  </BranchProvider>
+)
 
 const App: React.FC = () => {
-  const { isAuthenticated, employee } = useAuth()
+  const { isAuthenticated, isSuperAdmin, isHrManager } = useAuth()
 
   return (
-    <>
-      <DebugPanel />
-      <Routes>
+    <ToastProvider>
+      <>
+        <DebugPanel />
+        <ToastContainer />
+        <Routes>
         {/* Login is always available */}
         <Route path="/login" element={<LoginPage />} />
 
+        {/* Super Admin area */}
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="hr-managers" element={<AdminHrManagersPage />} />
+          <Route path="restaurants" element={<AdminRestaurantsPage />} />
+          <Route path="branches" element={<AdminBranchesPage />} />
+          <Route path="analytics" element={<AdminAnalyticsPage />} />
+          <Route path="settings" element={<AdminSettingsPage />} />
+          <Route path="logs" element={<AdminActivityLogsPage />} />
+        </Route>
+
         {/* HR area (same idea as before, just with new routes) */}
-        <Route path="/hr" element={<HrLayout />}>
+        <Route path="/hr" element={<HrRoutesWrapper />}>
           <Route index element={<HrDashboardPage />} />
           <Route
             path="branches/:branchId/schedule"
@@ -43,6 +77,9 @@ const App: React.FC = () => {
             element={<HrTimeOffRequestsPage />}
           />
           <Route path="employees/:employeeId" element={<EmployeeDetailsPage />} />
+          <Route path="branch-settings" element={<BranchSettingsPage />} />
+          <Route path="branches/:branchId/roles" element={<RoleManagerPage />} />
+          <Route path="branches/:branchId/inventory" element={<InventoryPage />} />
         </Route>
 
         {/* Employee area */}
@@ -58,14 +95,17 @@ const App: React.FC = () => {
           path="*"
           element={
             isAuthenticated
-              ? employee?.isHRManager
-                ? <Navigate to="/hr" replace />
-                : <Navigate to="/me" replace />
+              ? isSuperAdmin
+                ? <Navigate to="/admin" replace />
+                : isHrManager
+                  ? <Navigate to="/hr" replace />
+                  : <Navigate to="/me" replace />
               : <Navigate to="/login" replace />
           }
         />
       </Routes>
-    </>
+      </>
+    </ToastProvider>
   )
 }
 

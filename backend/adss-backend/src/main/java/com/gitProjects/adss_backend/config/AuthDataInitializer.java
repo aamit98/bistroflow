@@ -2,29 +2,158 @@ package com.gitProjects.adss_backend.config;
 
 import com.gitProjects.adss_backend.auth.EmployeeAccount;
 import com.gitProjects.adss_backend.auth.EmployeeAccountRepository;
+import com.gitProjects.adss_backend.hr.model.BranchEntity;
+import com.gitProjects.adss_backend.hr.model.BranchRoleEntity;
+import com.gitProjects.adss_backend.hr.model.BranchShiftTemplateEntity;
 import com.gitProjects.adss_backend.hr.model.ShiftEnums;
-import com.gitProjects.adss_backend.hr.model.WeeklyRoleConstraintEntity;
-import com.gitProjects.adss_backend.hr.model.ShiftAssignmentEntity;
-import com.gitProjects.adss_backend.hr.repo.WeeklyRoleConstraintRepository;
-import com.gitProjects.adss_backend.hr.repo.ShiftAssignmentRepository;
+import com.gitProjects.adss_backend.hr.repo.BranchRepository;
+import com.gitProjects.adss_backend.hr.repo.BranchRoleRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
+import java.time.LocalTime;
 import java.util.List;
 
 @Configuration
+@Profile({"dev", "test"})
 public class AuthDataInitializer {
 
     private static final Logger log = LoggerFactory.getLogger(AuthDataInitializer.class);
 
+    /**
+     * Seed branches first so employees can reference them.
+     * Also creates default roles for each branch.
+     */
+    @Bean
+    @Order(0)
+    CommandLineRunner initBranches(BranchRepository branchRepo, BranchRoleRepository roleRepo) {
+        return args -> {
+            if (branchRepo.count() > 0) {
+                log.info("Branches already initialized, skipping seeding.");
+                return;
+            }
+
+            // Create Downtown branch
+            BranchEntity downtown = new BranchEntity("Downtown", "Tel Aviv");
+            downtown.setAddress("123 Rothschild Blvd");
+            downtown.setPhone("03-555-1234");
+            downtown.addShiftTemplate(new BranchShiftTemplateEntity(
+                    ShiftEnums.ShiftType.MORNING,
+                    LocalTime.of(6, 0),
+                    LocalTime.of(14, 0)
+            ));
+            downtown.addShiftTemplate(new BranchShiftTemplateEntity(
+                    ShiftEnums.ShiftType.EVENING,
+                    LocalTime.of(14, 0),
+                    LocalTime.of(22, 0)
+            ));
+            branchRepo.save(downtown);
+            
+            // Add default roles for Downtown
+            addDefaultRolesForBranch(roleRepo, downtown);
+
+            // Create Mall branch
+            BranchEntity mall = new BranchEntity("Mall", "Tel Aviv");
+            mall.setAddress("Azrieli Center, Floor 2");
+            mall.setPhone("03-555-5678");
+            mall.addShiftTemplate(new BranchShiftTemplateEntity(
+                    ShiftEnums.ShiftType.MORNING,
+                    LocalTime.of(9, 0),
+                    LocalTime.of(17, 0)
+            ));
+            mall.addShiftTemplate(new BranchShiftTemplateEntity(
+                    ShiftEnums.ShiftType.EVENING,
+                    LocalTime.of(17, 0),
+                    LocalTime.of(23, 0)
+            ));
+            branchRepo.save(mall);
+            
+            // Add default roles for Mall
+            addDefaultRolesForBranch(roleRepo, mall);
+
+            log.info("Seeded 2 demo branches: Downtown (id=1), Mall (id=2) with default roles");
+        };
+    }
+    
+    /**
+     * Creates standard restaurant roles for a branch.
+     * Rates are in agorot (3350 = ₪33.50, which is Israeli minimum wage).
+     */
+    private void addDefaultRolesForBranch(BranchRoleRepository roleRepo, BranchEntity branch) {
+        // Shift Manager - supervises the shift
+        BranchRoleEntity shiftManager = new BranchRoleEntity(branch, "SHIFT_MANAGER", "Shift Manager");
+        shiftManager.setDescription("Supervises shift operations and staff");
+        shiftManager.setColor("#7C3AED"); // Purple
+        shiftManager.setIcon("crown");
+        shiftManager.setBaseHourlyRate(5000); // ₪50/hour
+        shiftManager.setCanSupervise(true);
+        shiftManager.setSortOrder(1);
+        roleRepo.save(shiftManager);
+        
+        // Grill / Burger Station
+        BranchRoleEntity grill = new BranchRoleEntity(branch, "GRILL", "Grill Master");
+        grill.setDescription("Operates grill and prepares burgers/meat");
+        grill.setColor("#EF4444"); // Red
+        grill.setIcon("fire");
+        grill.setBaseHourlyRate(4000); // ₪40/hour
+        grill.setRequiresCertification(true); // Food safety cert
+        grill.setSortOrder(2);
+        roleRepo.save(grill);
+        
+        // Prep / Kitchen
+        BranchRoleEntity prep = new BranchRoleEntity(branch, "PREP", "Prep Cook");
+        prep.setDescription("Food preparation, cutting, mise en place");
+        prep.setColor("#F59E0B"); // Orange
+        prep.setIcon("knife");
+        prep.setBaseHourlyRate(3600); // ₪36/hour
+        prep.setSortOrder(3);
+        roleRepo.save(prep);
+        
+        // Cashier / Front Counter
+        BranchRoleEntity cashier = new BranchRoleEntity(branch, "CASHIER", "Cashier");
+        cashier.setDescription("Takes orders, handles payments, customer service");
+        cashier.setColor("#10B981"); // Green
+        cashier.setIcon("cash-register");
+        cashier.setBaseHourlyRate(3500); // ₪35/hour
+        cashier.setSortOrder(4);
+        roleRepo.save(cashier);
+        
+        // Runner / Expeditor
+        BranchRoleEntity runner = new BranchRoleEntity(branch, "RUNNER", "Food Runner");
+        runner.setDescription("Delivers food to tables, keeps floor clean");
+        runner.setColor("#3B82F6"); // Blue
+        runner.setIcon("running");
+        runner.setBaseHourlyRate(3350); // ₪33.50/hour (minimum wage)
+        runner.setSortOrder(5);
+        roleRepo.save(runner);
+        
+        // Dishwasher / Cleaner
+        BranchRoleEntity dish = new BranchRoleEntity(branch, "DISH", "Dishwasher");
+        dish.setDescription("Dishwashing, kitchen cleaning, sanitation");
+        dish.setColor("#6B7280"); // Gray
+        dish.setIcon("soap");
+        dish.setBaseHourlyRate(3350); // ₪33.50/hour (minimum wage)
+        dish.setSortOrder(6);
+        roleRepo.save(dish);
+        
+        log.info("Created 6 default roles for branch: {}", branch.getName());
+    }
+
+    /**
+     * Seed ONLY a single HR manager account into H2 when the DB is empty.
+     * No demo workers, no demo constraints, no demo assignments.
+     *
+     * This lets you:
+     *  - reset the H2 file
+     *  - get one clean HR login
+     *  - build everything from the UI like in a real system
+     */
     @Bean
     @Order(1)
     CommandLineRunner initEmployeeAccounts(
@@ -37,233 +166,80 @@ public class AuthDataInitializer {
                 return;
             }
 
-            // HR manager account (employeeId = 1)
+            // Super Admin account (employeeId = 999999999) - controls all HR managers
+            // In production, this would be created during initial setup only
+            EmployeeAccount admin = new EmployeeAccount();
+            admin.setEmployeeId(999999999); // Special ID for super admin
+            admin.setName("System Admin");
+            admin.setUsername("admin");
+            admin.setPasswordHash(passwordEncoder.encode("admin123")); // password: admin123
+            admin.setHrManager(true);
+            admin.setSuperAdmin(true);
+            admin.setBranchId(null); // Super admin has access to ALL branches
+            admin.setRoles(List.of());
+            repo.save(admin);
+            log.info("Seeded super admin account: employeeId=999999999, password='admin123'");
+
+            // HR manager account for Downtown branch (employeeId = 1)
             EmployeeAccount hr = new EmployeeAccount();
             hr.setEmployeeId(1);
+            hr.setName("Sarah Cohen");
             hr.setUsername("Sarah Cohen");
-            hr.setPasswordHash(passwordEncoder.encode("hrManager"));
+            hr.setPasswordHash(passwordEncoder.encode("hrManager")); // password: hrManager
             hr.setHrManager(true);
+            hr.setSuperAdmin(false);
             hr.setBranchId(1);
-            hr.setRoles(List.of("CASHIER", "STOREKEEPER", "MANAGER"));
+            hr.setRoles(List.of()); // HR managers don't work shifts
+            hr.setPrimaryRole(null);
+            hr.setMaxWeeklyHours(null);
+            hr.setMinWeeklyHours(null);
+            hr.setMaxConsecutiveDays(null);
+            hr.setMinRestHoursBetweenShifts(null);
+
             repo.save(hr);
 
-            // Regular workers
-            EmployeeAccount worker2 = new EmployeeAccount();
-            worker2.setEmployeeId(2);
-            worker2.setUsername("David Levi");
-            worker2.setPasswordHash(passwordEncoder.encode("worker"));
-            worker2.setHrManager(false);
-            worker2.setBranchId(1);
-            worker2.setRoles(List.of("CASHIER"));
-            repo.save(worker2);
+            log.info("Seeded demo HR manager account: username='{}', password='hrManager', employeeId={}, branchId={}",
+                    hr.getUsername(), hr.getEmployeeId(), hr.getBranchId());
+            
+            // HR manager account for Mall branch (employeeId = 2)
+            EmployeeAccount hr2 = new EmployeeAccount();
+            hr2.setEmployeeId(2);
+            hr2.setName("David Levi");
+            hr2.setUsername("David Levi");
+            hr2.setPasswordHash(passwordEncoder.encode("hrManager")); // password: hrManager
+            hr2.setHrManager(true);
+            hr2.setSuperAdmin(false);
+            hr2.setBranchId(2); // Mall branch
+            hr2.setRoles(List.of());
+            hr2.setPrimaryRole(null);
+            hr2.setMaxWeeklyHours(null);
+            hr2.setMinWeeklyHours(null);
+            hr2.setMaxConsecutiveDays(null);
+            hr2.setMinRestHoursBetweenShifts(null);
 
-            EmployeeAccount worker3 = new EmployeeAccount();
-            worker3.setEmployeeId(3);
-            worker3.setUsername("Maya Ben-Ari");
-            worker3.setPasswordHash(passwordEncoder.encode("worker"));
-            worker3.setHrManager(false);
-            worker3.setBranchId(1);
-            worker3.setRoles(List.of("CASHIER", "COOK"));
-            repo.save(worker3);
+            repo.save(hr2);
 
-            EmployeeAccount worker4 = new EmployeeAccount();
-            worker4.setEmployeeId(4);
-            worker4.setUsername("Yossi Mizrachi");
-            worker4.setPasswordHash(passwordEncoder.encode("worker"));
-            worker4.setHrManager(false);
-            worker4.setBranchId(1);
-            worker4.setRoles(List.of("COOK"));
-            repo.save(worker4);
-
-            EmployeeAccount worker5 = new EmployeeAccount();
-            worker5.setEmployeeId(5);
-            worker5.setUsername("Noa Shapira");
-            worker5.setPasswordHash(passwordEncoder.encode("worker"));
-            worker5.setHrManager(false);
-            worker5.setBranchId(1);
-            worker5.setRoles(List.of("CASHIER", "STOREKEEPER"));
-            repo.save(worker5);
-
-            log.info("Seeded {} employee accounts into H2.", repo.count());
+            log.info("Seeded demo HR manager account: username='{}', password='hrManager', employeeId={}, branchId={}",
+                    hr2.getUsername(), hr2.getEmployeeId(), hr2.getBranchId());
         };
     }
-
+    
+    /**
+     * Ensure all existing branches have default roles.
+     * This is a migration for branches that were created before roles existed.
+     */
     @Bean
     @Order(2)
-    CommandLineRunner initRoleConstraints(WeeklyRoleConstraintRepository repo) {
+    CommandLineRunner ensureBranchRoles(BranchRepository branchRepo, BranchRoleRepository roleRepo) {
         return args -> {
-            if (repo.count() > 0) {
-                log.info("Role constraints already initialized, skipping seeding.");
-                return;
-            }
-
-            // Get next Sunday and the Sunday after that for test data
-            LocalDate today = LocalDate.now();
-            LocalDate nextSunday = today.with(TemporalAdjusters.next(DayOfWeek.SUNDAY));
-            if (today.getDayOfWeek() == DayOfWeek.SUNDAY) {
-                nextSunday = today.plusWeeks(1);
-            }
-
-            // Seed role constraints for next week - Branch 1
-            // Typical food chain shift requirements
-            int branchId = 1;
-
-            ShiftEnums.DayOfWeekCode[] weekdays = {
-                    ShiftEnums.DayOfWeekCode.SUNDAY,
-                    ShiftEnums.DayOfWeekCode.MONDAY,
-                    ShiftEnums.DayOfWeekCode.TUESDAY,
-                    ShiftEnums.DayOfWeekCode.WEDNESDAY,
-                    ShiftEnums.DayOfWeekCode.THURSDAY
-            };
-
-            ShiftEnums.DayOfWeekCode[] weekend = {
-                    ShiftEnums.DayOfWeekCode.FRIDAY,
-                    ShiftEnums.DayOfWeekCode.SATURDAY
-            };
-
-            // Weekday constraints
-            for (ShiftEnums.DayOfWeekCode day : weekdays) {
-                for (ShiftEnums.ShiftType shift : ShiftEnums.ShiftType.values()) {
-                    // CASHIER: 2 for morning, 2 for evening on weekdays
-                    saveConstraint(repo, branchId, nextSunday, day, shift, "CASHIER", 2);
-                    // COOK: 1 for each shift
-                    saveConstraint(repo, branchId, nextSunday, day, shift, "COOK", 1);
-                    // MANAGER: 1 for morning only
-                    if (shift == ShiftEnums.ShiftType.MORNING) {
-                        saveConstraint(repo, branchId, nextSunday, day, shift, "MANAGER", 1);
-                    }
+            List<BranchEntity> branches = branchRepo.findAll();
+            for (BranchEntity branch : branches) {
+                // Check if this branch already has roles
+                if (roleRepo.findByBranchIdOrderBySortOrderAsc(branch.getId()).isEmpty()) {
+                    log.info("Branch '{}' has no roles, adding defaults...", branch.getName());
+                    addDefaultRolesForBranch(roleRepo, branch);
                 }
             }
-
-            // Weekend constraints (busier)
-            for (ShiftEnums.DayOfWeekCode day : weekend) {
-                for (ShiftEnums.ShiftType shift : ShiftEnums.ShiftType.values()) {
-                    // More staff needed on weekends
-                    saveConstraint(repo, branchId, nextSunday, day, shift, "CASHIER", 3);
-                    saveConstraint(repo, branchId, nextSunday, day, shift, "COOK", 2);
-                    saveConstraint(repo, branchId, nextSunday, day, shift, "MANAGER", 1);
-                }
-            }
-
-            log.info("Seeded {} role constraints for week starting {}.", repo.count(), nextSunday);
         };
-    }
-
-    @Bean
-    @Order(3)
-    CommandLineRunner initSampleShiftAssignments(ShiftAssignmentRepository repo) {
-        return args -> {
-            if (repo.count() > 0) {
-                log.info("Shift assignments already initialized, skipping seeding.");
-                return;
-            }
-
-            // Get next Sunday for test data
-            LocalDate today = LocalDate.now();
-            LocalDate nextSunday = today.with(TemporalAdjusters.next(DayOfWeek.SUNDAY));
-            if (today.getDayOfWeek() == DayOfWeek.SUNDAY) {
-                nextSunday = today.plusWeeks(1);
-            }
-
-            int branchId = 1;
-
-            // Add some sample assignments for Sunday and Monday
-            // Sunday morning
-            saveAssignment(repo, branchId, 2, nextSunday, ShiftEnums.ShiftType.MORNING, "CASHIER");
-            saveAssignment(repo, branchId, 3, nextSunday, ShiftEnums.ShiftType.MORNING, "CASHIER");
-            saveAssignment(repo, branchId, 4, nextSunday, ShiftEnums.ShiftType.MORNING, "COOK");
-
-            // Sunday evening  
-            saveAssignment(repo, branchId, 5, nextSunday, ShiftEnums.ShiftType.EVENING, "CASHIER");
-            saveAssignment(repo, branchId, 3, nextSunday, ShiftEnums.ShiftType.EVENING, "COOK");
-
-            // Monday morning
-            LocalDate monday = nextSunday.plusDays(1);
-            saveAssignment(repo, branchId, 2, monday, ShiftEnums.ShiftType.MORNING, "CASHIER");
-            saveAssignment(repo, branchId, 4, monday, ShiftEnums.ShiftType.MORNING, "COOK");
-            saveAssignment(repo, branchId, 1, monday, ShiftEnums.ShiftType.MORNING, "MANAGER");
-
-            log.info("Seeded {} sample shift assignments.", repo.count());
-        };
-    }
-
-    @Bean
-    @Order(4)
-    CommandLineRunner initSampleAvailabilities(
-            com.gitProjects.adss_backend.hr.repo.EmployeeAvailabilityRepository availabilityRepo
-    ) {
-        return args -> {
-            if (availabilityRepo.count() > 0) {
-                log.info("Employee availability already initialized, skipping seeding.");
-                return;
-            }
-
-            LocalDate today = LocalDate.now();
-            LocalDate nextSunday = today.with(TemporalAdjusters.next(DayOfWeek.SUNDAY));
-            if (today.getDayOfWeek() == DayOfWeek.SUNDAY) {
-                nextSunday = today.plusWeeks(1);
-            }
-
-            int[] employeeIds = {2,3,4,5,6,7,8,9};
-
-            for (int emp : employeeIds) {
-                for (ShiftEnums.DayOfWeekCode day : ShiftEnums.DayOfWeekCode.values()) {
-                    for (ShiftEnums.ShiftType shift : ShiftEnums.ShiftType.values()) {
-                        com.gitProjects.adss_backend.hr.model.EmployeeAvailabilityEntity e = new com.gitProjects.adss_backend.hr.model.EmployeeAvailabilityEntity();
-                        e.setEmployeeId(emp);
-                        e.setWeekStart(nextSunday);
-                        e.setDayOfWeek(day);
-                        e.setShiftType(shift);
-                        // simple pattern: even employees available mornings, odd available evenings
-                        boolean available = (emp % 2 == 0 && shift == ShiftEnums.ShiftType.MORNING)
-                                || (emp % 2 == 1 && shift == ShiftEnums.ShiftType.EVENING);
-                        // make some days fully available
-                        if (day == ShiftEnums.DayOfWeekCode.FRIDAY || day == ShiftEnums.DayOfWeekCode.SATURDAY) {
-                            available = true; // weekend more available
-                        }
-                        e.setAvailable(available);
-                        availabilityRepo.save(e);
-                    }
-                }
-            }
-
-            log.info("Seeded {} availability entries.", availabilityRepo.count());
-        };
-    }
-
-    private void saveConstraint(
-            WeeklyRoleConstraintRepository repo,
-            int branchId,
-            LocalDate weekStart,
-            ShiftEnums.DayOfWeekCode day,
-            ShiftEnums.ShiftType shift,
-            String role,
-            int required
-    ) {
-        WeeklyRoleConstraintEntity c = new WeeklyRoleConstraintEntity();
-        c.setBranchId(branchId);
-        c.setWeekStart(weekStart);
-        c.setDayOfWeek(day);
-        c.setShiftType(shift);
-        c.setRole(role);
-        c.setRequiredCount(required);
-        repo.save(c);
-    }
-
-    private void saveAssignment(
-            ShiftAssignmentRepository repo,
-            int branchId,
-            int employeeId,
-            LocalDate date,
-            ShiftEnums.ShiftType shift,
-            String role
-    ) {
-        ShiftAssignmentEntity a = new ShiftAssignmentEntity();
-        a.setBranchId(branchId);
-        a.setEmployeeId(employeeId);
-        a.setDate(date);
-        a.setShiftType(shift);
-        a.setRole(role);
-        repo.save(a);
     }
 }

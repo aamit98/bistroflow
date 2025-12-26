@@ -1,51 +1,49 @@
 package com.gitProjects.adss_backend.api;
 
-import GlobalClasses.EmployeeToSend;
-import GlobalClasses.Role;
-import ServiceLayer.HR.WrapperService;
-import ServiceLayer.Response;
+import com.gitProjects.adss_backend.api.dto.EmployeeSummaryDto;
+import com.gitProjects.adss_backend.api.dto.PagedResponse;
 import com.gitProjects.adss_backend.auth.EmployeeAccount;
 import com.gitProjects.adss_backend.auth.EmployeeAccountRepository;
+import com.gitProjects.adss_backend.hr.repo.BranchRoleRepository;
+import com.gitProjects.adss_backend.service.HrAccessValidationService;
+import com.gitProjects.adss_backend.service.HrEmployeeManagementService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/hr")
+@PreAuthorize("hasRole('HR_MANAGER')")
 public class HrEmployeeManagementController {
-
-    private final WrapperService wrapperService;
     private final EmployeeAccountRepository accountRepository;
     private final PasswordEncoder passwordEncoder;
+    private final BranchRoleRepository branchRoleRepository;
+    private final HrAccessValidationService accessValidation;
+    private final HrEmployeeManagementService employeeService;
+    private static final Logger log = LoggerFactory.getLogger(HrEmployeeManagementController.class);
+
+    // Israeli minimum wage: 3350 agorot = ₪33.50/hr
+    private static final int MIN_WAGE_AGOROT = 3350;
 
     public HrEmployeeManagementController(
-            WrapperService wrapperService,
             EmployeeAccountRepository accountRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            BranchRoleRepository branchRoleRepository,
+            HrAccessValidationService accessValidation,
+            HrEmployeeManagementService employeeService
     ) {
-        this.wrapperService = wrapperService;
         this.accountRepository = accountRepository;
         this.passwordEncoder = passwordEncoder;
-    }
-
-    private boolean isHr(Authentication auth) {
-        if (auth == null) {
-            System.out.println("[DEBUG] isHr: auth is null");
-            return false;
-        }
-        Object cred = auth.getCredentials();
-        System.out.println("[DEBUG] isHr: credentials type = " + (cred != null ? cred.getClass().getName() : "null") + ", value = " + cred);
-        if (cred instanceof Boolean b) {
-            System.out.println("[DEBUG] isHr: credentials is Boolean = " + b);
-            return b;
-        }
-        System.out.println("[DEBUG] isHr: credentials is not Boolean, returning false");
-        return false;
+        this.branchRoleRepository = branchRoleRepository;
+        this.accessValidation = accessValidation;
+        this.employeeService = employeeService;
     }
 
     private Integer currentEmployeeId(Authentication auth) {
@@ -53,82 +51,34 @@ public class HrEmployeeManagementController {
         Object principal = auth.getPrincipal();
         if (principal instanceof Integer i) return i;
         if (principal instanceof String s) {
-            try { return Integer.parseInt(s); } catch (NumberFormatException e) { return null; }
+            try {
+                return Integer.parseInt(s);
+            } catch (NumberFormatException e) {
+                return null;
+            }
         }
         return null;
     }
 
-    // HR: get employees in own branch with enriched profile info
     @GetMapping("/branches/{branchId}/employees")
     public ResponseEntity<?> getEmployeesForBranch(
             @PathVariable int branchId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
             Authentication auth
     ) {
-        System.out.println("[DEBUG] getEmployeesForBranch called");
-        System.out.println("[DEBUG] auth = " + auth);
-        System.out.println("[DEBUG] auth != null? " + (auth != null));
-        
-        if (auth != null) {
-            System.out.println("[DEBUG] auth.getCredentials() = " + auth.getCredentials());
-            System.out.println("[DEBUG] auth.getPrincipal() = " + auth.getPrincipal());
-            System.out.println("[DEBUG] auth.isAuthenticated() = " + auth.isAuthenticated());
-            System.out.println("[DEBUG] auth.getAuthorities() = " + auth.getAuthorities());
-        }
-        
-        if (!isHr(auth)) {
-            System.out.println("[DEBUG] isHr(auth) returned false, returning 403");
+        log.debug("getEmployeesForBranch called for branch {} by {}", branchId, auth != null ? auth.getName() : "anonymous");
+
+        String accessError = accessValidation.validateBranchAccess(auth, branchId);
+        if (accessError != null) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "HR manager access required"));
+                    .body(Map.of("error", accessError));
         }
 
-        Integer managerId = currentEmployeeId(auth);
-        if (managerId == null) {
-            managerId = 1; // fallback for legacy service
-        }
+        PagedResponse<EmployeeSummaryDto> response = employeeService
+                .getEmployeesForBranch(branchId, page, size);
 
-        Response res = wrapperService.hrManagerService.getAllEmployeesInBranch(managerId, branchId);
-        if (res.errorOccurred()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", res.getErrorMsg()));
-        }
-
-        // The service returns an array, not a List
-        Object returnValue = res.getReturnValue();
-        EmployeeToSend[] employeesArray;
-        
-        if (returnValue instanceof EmployeeToSend[]) {
-            employeesArray = (EmployeeToSend[]) returnValue;
-        } else if (returnValue instanceof List) {
-            @SuppressWarnings("unchecked")
-            List<EmployeeToSend> list = (List<EmployeeToSend>) returnValue;
-            employeesArray = list.toArray(new EmployeeToSend[0]);
-        } else {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Unexpected return type from service"));
-        }
-
-        List<Map<String, Object>> body = Arrays.stream(employeesArray)
-                .map(e -> {
-                    Map<String, Object> dto = new LinkedHashMap<>();
-                    dto.put("id", e.id);
-                    dto.put("name", e.name);
-                    dto.put("branchId", e.branchId);
-                    dto.put("isHRManager", e.isHRManager);
-                    dto.put("hourlyRate", e.hourlyRate);
-                    dto.put("monthlyRate", e.monthlyRate);
-                    dto.put("termsOfEmployment", e.termsOfEmployment);
-                    dto.put("bankCode", e.bankCode);
-                    dto.put("bankBranchCode", e.bankBranchCode);
-                    dto.put("bankAccount", e.bankAccount);
-                    dto.put("startDate", e.startDate);
-                    dto.put("roles", Arrays.stream(e.roles)
-                            .map(Enum::name)
-                            .collect(Collectors.toList()));
-                    return dto;
-                })
-                .toList();
-
-        return ResponseEntity.ok(body);
+        return ResponseEntity.ok(response);
     }
 
     public static class CreateEmployeeRequest {
@@ -146,84 +96,158 @@ public class HrEmployeeManagementController {
         public String password;
     }
 
-    // HR: add a new employee (including account)
     @PostMapping("/branches/{branchId}/employees")
     public ResponseEntity<?> addEmployee(
             @PathVariable int branchId,
             @RequestBody CreateEmployeeRequest body,
             Authentication auth
     ) {
-        if (!isHr(auth)) {
+        String accessError = accessValidation.validateBranchAccess(auth, branchId);
+        if (accessError != null) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "HR manager access required"));
+                    .body(Map.of("error", accessError));
         }
 
-        Integer managerId = currentEmployeeId(auth);
-        if (managerId == null) {
-            managerId = 1;
-        }
-
-        if (body == null || body.password == null || body.password.isBlank()) {
+        if (body.password == null || body.password.isBlank()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", "Password is required"));
         }
 
-        if (body.branchId == 0) {
-            body.branchId = branchId;
-        }
-
-        Role[] rolesArr;
-        if (body.roles == null || body.roles.isEmpty()) {
-            rolesArr = new Role[0];
-        } else {
-            rolesArr = body.roles.stream()
-                    .map(r -> {
-                        try {
-                            return Role.valueOf(r.toUpperCase());
-                        } catch (IllegalArgumentException ex) {
-                            throw new RuntimeException("Unknown role: " + r);
-                        }
-                    })
-                    .toArray(Role[]::new);
-        }
-
-        EmployeeToSend toSend = new EmployeeToSend(
-                body.id,
-                body.branchId,
-                body.termsOfEmployment != null ? body.termsOfEmployment : "",
-                body.name != null ? body.name : "",
-                body.startDate,
-                body.bankCode,
-                body.bankBranchCode,
-                body.bankAccount,
-                body.hourlyRate,
-                body.monthlyRate,
-                rolesArr
-        );
-
-        Response res = wrapperService.hrManagerService.addEmployee(managerId, toSend, body.password);
-        if (res.errorOccurred()) {
+        if (body.branchId != 0 && body.branchId != branchId) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", res.getErrorMsg()));
+                    .body(Map.of("error", "Branch mismatch between path and payload"));
+        }
+        body.branchId = branchId;
+
+        if (body.id <= 0 || String.valueOf(body.id).length() > 9) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Invalid Israeli ID (must be 1-9 digits)"));
         }
 
-        // Also save the account to H2 database so the employee can log in
-        try {
-            EmployeeAccount account = new EmployeeAccount();
+        if (body.hourlyRate > 0 && body.hourlyRate < MIN_WAGE_AGOROT) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Hourly rate must be at least " + MIN_WAGE_AGOROT + " agorot (₪33.50 minimum wage)"));
+        }
+
+        if (body.roles == null || body.roles.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Employee must have at least one role assigned"));
+        }
+
+        List<String> invalidRoles = new ArrayList<>();
+        for (String roleCode : body.roles) {
+            boolean exists = branchRoleRepository.findByBranchIdAndCode(branchId, roleCode)
+                    .map(role -> role.isActive())
+                    .orElse(false);
+            if (!exists) {
+                invalidRoles.add(roleCode);
+            }
+        }
+        if (!invalidRoles.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Invalid or inactive role codes: " + String.join(", ", invalidRoles)));
+        }
+
+        Optional<EmployeeAccount> existingAccountOpt = accountRepository.findByEmployeeId(body.id);
+        EmployeeAccount account;
+        boolean reactivated = false;
+
+        if (existingAccountOpt.isPresent()) {
+            EmployeeAccount existingAccount = existingAccountOpt.get();
+            if (existingAccount.isActive()) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("error", "Employee with this ID already exists"));
+            }
+            account = existingAccount;
+            reactivated = true;
+        } else {
+            account = new EmployeeAccount();
             account.setEmployeeId(body.id);
-            account.setUsername("employee" + body.id); // username format
-            account.setPasswordHash(passwordEncoder.encode(body.password));
-            account.setHrManager(false); // New employees are not HR by default
-            account.setBranchId(body.branchId);
-            account.setRoles(body.roles != null ? body.roles : new ArrayList<>());
-            accountRepository.save(account);
-            System.out.println("[DEBUG] Account saved for employee " + body.id);
-        } catch (Exception e) {
-            System.out.println("[DEBUG] Warning: Could not save account for employee " + body.id + ": " + e.getMessage());
-            // Don't fail the employee creation if account save fails, but log it
         }
 
+        String username = (body.name != null && !body.name.isBlank())
+                ? body.name
+                : "employee" + body.id;
+        account.setUsername(username);
+        account.setName(body.name);
+        account.setPasswordHash(passwordEncoder.encode(body.password));
+        account.setHrManager(false);
+        account.setBranchId(body.branchId);
+        account.setActive(true);
+        account.setRoles(body.roles != null ? new ArrayList<>(body.roles) : new ArrayList<>());
+
+        account.setHourlyRate(body.hourlyRate);
+        account.setMonthlyRate(body.monthlyRate);
+        account.setTermsOfEmployment(body.termsOfEmployment);
+        account.setBankCode(body.bankCode);
+        account.setBankBranchCode(body.bankBranchCode);
+        account.setBankAccount(body.bankAccount);
+
+        if (body.startDate > 0) {
+            String dateStr = String.valueOf(body.startDate);
+            if (dateStr.length() == 8) {
+                try {
+                    int year = Integer.parseInt(dateStr.substring(0, 4));
+                    int month = Integer.parseInt(dateStr.substring(4, 6));
+                    int day = Integer.parseInt(dateStr.substring(6, 8));
+                    account.setStartDate(java.time.LocalDate.of(year, month, day));
+                } catch (Exception e) {
+                    log.warn("Invalid start date {} provided for employee {}", dateStr, body.id);
+                }
+            }
+        }
+
+        accountRepository.save(account);
+        if (reactivated) {
+            log.info("Reactivated employee {} in branch {}", body.id, body.branchId);
+            return ResponseEntity.ok(Map.of("message", "Employee reactivated successfully"));
+        }
+
+        log.info("Created employee {} in branch {}", body.id, body.branchId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(Map.of("message", "Employee created successfully"));
+    }
+
+    @DeleteMapping("/branches/{branchId}/employees/{employeeId}")
+    public ResponseEntity<?> deleteEmployee(
+            @PathVariable int branchId,
+            @PathVariable int employeeId,
+            Authentication auth
+    ) {
+        String accessError = accessValidation.validateBranchAccess(auth, branchId);
+        if (accessError != null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", accessError));
+        }
+
+        Optional<EmployeeAccount> maybeAccount = accountRepository.findByEmployeeId(employeeId);
+        if (maybeAccount.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Employee not found"));
+        }
+
+        EmployeeAccount account = maybeAccount.get();
+
+        if (account.getBranchId() != null && !Objects.equals(account.getBranchId(), branchId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Employee does not belong to this branch"));
+        }
+
+        Integer currentId = currentEmployeeId(auth);
+        if (currentId != null && currentId.equals(employeeId)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Cannot delete your own account"));
+        }
+
+        if (account.isHrManager()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Cannot delete an HR manager account"));
+        }
+
+        account.setActive(false);
+        accountRepository.save(account);
+        log.info("Employee {} deactivated by {}", employeeId, auth != null ? auth.getName() : "unknown");
+
+        return ResponseEntity.ok(Map.of("message", "Employee deactivated successfully"));
     }
 }

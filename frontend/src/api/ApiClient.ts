@@ -16,7 +16,7 @@ export function setAuthToken(token: string | null) {
 }
 
 // Debug: log outgoing requests (only in development) to help diagnose 403s
-if (process.env.NODE_ENV === 'development') {
+if (import.meta.env.DEV) {
   apiClient.interceptors.request.use((cfg) => {
     try {
       if (cfg.url && cfg.url.includes('/hr/')) {

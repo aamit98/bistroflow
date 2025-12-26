@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -35,35 +37,48 @@ public class SecurityConfig {
 
     private final JwtService jwtService;
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
+    private final boolean devSurfacesEnabled;
 
-    public SecurityConfig(JwtService jwtService) {
+    public SecurityConfig(JwtService jwtService, Environment environment) {
         this.jwtService = jwtService;
+        this.devSurfacesEnabled = environment.acceptsProfiles(Profiles.of("dev", "test"));
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http
+        http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sess ->
                         sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                .authorizeHttpRequests(auth -> auth
-                    .requestMatchers(
-                        "/api/auth/**",
-                        "/health",
-                        "/actuator/health",
-                        "/h2-console/**",
-                        "/ws/**"
-                    ).permitAll()
-                    .anyRequest().authenticated()
-                )
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(
+                            "/api/auth/**",
+                            "/health",
+                            "/actuator/health",
+                            "/ws/**"
+                    ).permitAll();
+
+                    if (devSurfacesEnabled) {
+                        auth.requestMatchers(
+                                "/api/admin/demo/**",
+                                "/h2-console/**"
+                        ).permitAll();
+                    }
+
+                    auth.anyRequest().authenticated();
+                })
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtService),
                         UsernamePasswordAuthenticationFilter.class
-                )
-                // For H2 console
-                .headers(headers -> headers.frameOptions(frame -> frame.disable()))
-                .build();
+                );
+
+        if (devSurfacesEnabled) {
+            // allow H2 console frames only in dev/test
+            http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
+        }
+
+        return http.build();
     }
 
     /**
@@ -88,11 +103,13 @@ public class SecurityConfig {
         ) throws ServletException, IOException {
 
             String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-            System.out.println("[JWT Filter] " + request.getMethod() + " " + request.getRequestURI());
-            System.out.println("[JWT Filter] Authorization header: " + authHeader);
+            if (log.isDebugEnabled()) {
+                log.debug("JWT filter {} {} (auth header present: {})",
+                        request.getMethod(), request.getRequestURI(), authHeader != null);
+            }
             
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                System.out.println("[JWT Filter] No bearer token, continuing...");
+                log.trace("Skipping JWT processing because no bearer token was provided");
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -100,14 +117,20 @@ public class SecurityConfig {
             String token = authHeader.substring(7);
             try {
                 Claims claims = jwtService.parseToken(token);
-                System.out.println("[JWT Filter] Token parsed successfully");
-                System.out.println("[JWT Filter] subject: " + claims.getSubject());
-                System.out.println("[JWT Filter] hrManager: " + claims.get("hrManager"));
 
-                String subject = claims.getSubject(); // employeeId as string
-                Integer employeeId = Integer.valueOf(subject);
+                // employeeId is now in its own claim
+                Integer employeeId = claims.get("employeeId", Integer.class);
+                if (employeeId == null) {
+                    // fallback for old tokens where subject = employeeId
+                    try {
+                        employeeId = Integer.valueOf(claims.getSubject());
+                    } catch (NumberFormatException nfe) {
+                        throw new RuntimeException("Cannot determine employeeId from token");
+                    }
+                }
 
                 Boolean hrManager = claims.get("hrManager", Boolean.class);
+                Boolean superAdmin = claims.get("superAdmin", Boolean.class);
                 Integer branchId = claims.get("branchId", Integer.class);
 
                 @SuppressWarnings("unchecked")
@@ -115,6 +138,9 @@ public class SecurityConfig {
                         (List<String>) claims.getOrDefault("roles", new ArrayList<>());
 
                 List<GrantedAuthority> authorities = new ArrayList<>();
+                if (Boolean.TRUE.equals(superAdmin)) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+                }
                 if (Boolean.TRUE.equals(hrManager)) {
                     authorities.add(new SimpleGrantedAuthority("ROLE_HR_MANAGER"));
                 }
@@ -126,14 +152,15 @@ public class SecurityConfig {
                         employeeId,
                         branchId,
                         Boolean.TRUE.equals(hrManager),
+                        Boolean.TRUE.equals(superAdmin),
                         authorities
                 );
 
                 SecurityContextHolder.getContext().setAuthentication(auth);
-                System.out.println("[JWT Filter] Authentication set for employee " + employeeId + ", HR: " + hrManager);
+                log.debug("Authenticated request for employee {} (HR={}, superAdmin={})",
+                        employeeId, hrManager, superAdmin);
             } catch (Exception e) {
                 log.warn("Failed to parse/validate JWT: {}", e.getMessage());
-                System.out.println("[JWT Filter] Failed to parse JWT: " + e.getMessage());
                 // don't set auth, just continue; request will be rejected if endpoint requires auth
             }
 
@@ -153,17 +180,20 @@ public class SecurityConfig {
         private final Integer employeeId;
         private final Integer branchId;
         private final boolean hrManager;
+        private final boolean superAdmin;
 
         public EmployeeAuthentication(
                 Integer employeeId,
                 Integer branchId,
                 boolean hrManager,
+                boolean superAdmin,
                 List<? extends GrantedAuthority> authorities
         ) {
             super(authorities);
             this.employeeId = employeeId;
             this.branchId = branchId;
             this.hrManager = hrManager;
+            this.superAdmin = superAdmin;
             setAuthenticated(true);
         }
 
@@ -187,6 +217,10 @@ public class SecurityConfig {
 
         public boolean isHrManager() {
             return hrManager;
+        }
+
+        public boolean isSuperAdmin() {
+            return superAdmin;
         }
     }
 }

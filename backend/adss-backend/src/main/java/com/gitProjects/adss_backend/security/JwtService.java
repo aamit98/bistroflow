@@ -3,11 +3,13 @@ package com.gitProjects.adss_backend.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.io.Encoders;
-import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.security.Key;
 import java.time.Instant;
@@ -18,19 +20,45 @@ import java.util.Map;
 @Service
 public class JwtService {
 
-    /**
-     * 256-bit secret, Base64. For dev you can generate once and paste here,
-     * or keep in application.properties.
-     */
-    @Value("${adss.jwt.secret:VGhpcy1pcy1hLWRldmVsb3BtZW50LXNlY3JldC1jaGFuZ2UtbWUtaW4tcHJvZA==}")
-    private String secret;
+    private final String secret;
 
-    @Value("${adss.jwt.expiration-minutes:60}")
-    private long expirationMinutes;
+    private final long expirationMinutes;
+
+    private Key signingKey;
+
+    public JwtService(
+            @Value("${adss.jwt.secret}") String secret,
+            @Value("${adss.jwt.expiration-minutes:60}") long expirationMinutes
+    ) {
+        this.secret = secret;
+        this.expirationMinutes = expirationMinutes;
+    }
+
+    @PostConstruct
+    void initializeSigningKey() {
+        if (!StringUtils.hasText(secret)) {
+            throw new IllegalStateException("Missing adss.jwt.secret configuration. Set ADSS_JWT_SECRET to a Base64-encoded 256-bit key.");
+        }
+
+        final byte[] keyBytes;
+        try {
+            keyBytes = Decoders.BASE64.decode(secret);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException("adss.jwt.secret must be Base64 encoded", ex);
+        }
+
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException("JWT secret must be at least 256 bits when decoded.");
+        }
+
+        this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+    }
 
     private Key getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(secret);
-        return Keys.hmacShaKeyFor(keyBytes);
+        if (signingKey == null) {
+            throw new IllegalStateException("Signing key not initialized");
+        }
+        return signingKey;
     }
 
     public String generateToken(
@@ -51,17 +79,9 @@ public class JwtService {
 
     public Claims parseToken(String token) {
         return Jwts.parser()
-                .setSigningKey(getSigningKey())
-                .build()
+            .setSigningKey(getSigningKey())
+            .build()
                 .parseClaimsJws(token)
                 .getBody();
-    }
-
-    /**
-     * Helper if you want to print/generate a new secret:
-     */
-    public static void main(String[] args) {
-        Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
-        System.out.println("Base64 secret: " + Encoders.BASE64.encode(key.getEncoded()));
     }
 }

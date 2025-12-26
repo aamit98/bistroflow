@@ -5,6 +5,7 @@ import {
   useEffect,
   type ReactNode,
 } from 'react'
+import type { AxiosError } from 'axios'
 import {
   loginApi,
   logoutApi,
@@ -17,6 +18,8 @@ interface AuthContextValue {
   isAuthenticated: boolean
   employee: Employee | null
   token: string | null
+  isHrManager: boolean
+  isSuperAdmin: boolean
   login: (employeeId: number, password: string) => Promise<Employee>
   logout: () => void
 }
@@ -59,24 +62,31 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function login(employeeId: number, password: string): Promise<Employee> {
-    const response = await loginApi({ employeeId, password })
-    const data: LoginResponse = response.data
+    try {
+      const response = await loginApi({ employeeId, password })
+      const data: LoginResponse = response.data
 
-    setAuthenticated(true)
-    setEmployee(data.employee)
-    setToken(data.token)
-    setAuthToken(data.token)
+      setAuthenticated(true)
+      setEmployee(data.employee)
+      setToken(data.token)
+      setAuthToken(data.token)
 
-    // persist
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        token: data.token,
-        employee: data.employee,
-      })
-    )
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          token: data.token,
+          employee: data.employee,
+        })
+      )
 
-    return data.employee
+      return data.employee
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ error?: string; message?: string }>
+      const message = axiosError?.response?.data?.error
+        ?? axiosError?.response?.data?.message
+        ?? 'Invalid employee ID or password'
+      throw new Error(message)
+    }
   }
 
   function logout() {
@@ -98,7 +108,15 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated, employee, token, login, logout }}
+      value={{ 
+        isAuthenticated, 
+        employee, 
+        token, 
+        isHrManager: employee?.isHRManager ?? false,
+        isSuperAdmin: employee?.isSuperAdmin ?? false,
+        login, 
+        logout 
+      }}
     >
       {children}
     </AuthContext.Provider>

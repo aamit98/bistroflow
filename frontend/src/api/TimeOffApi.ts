@@ -1,5 +1,6 @@
 // src/api/TimeOffApi.ts
 import { apiClient } from './ApiClient'
+import type { PagedResponse } from './types'
 
 export type ShiftType = 'MORNING' | 'EVENING'
 
@@ -38,14 +39,28 @@ export const createTimeOffRequestApi = (
     },
   )
 
+export const getEmployeeTimeOffRequestsApi = (
+  employeeId: number,
+  page = 0,
+  size = 10,
+) =>
+  apiClient.get<PagedResponse<TimeOffRequest>>(
+    `/employees/${employeeId}/time-off-requests`,
+    {
+      params: { page, size },
+    },
+  )
+
 export const getBranchTimeOffRequestsApi = (
   branchId: number,
   status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING',
+  page = 0,
+  size = 20,
 ) =>
-  apiClient.get<TimeOffRequest[]>(
+  apiClient.get<PagedResponse<TimeOffRequest>>(
     `/hr/branches/${branchId}/time-off-requests`,
     {
-      params: { status },
+      params: { status, page, size },
     },
   )
 

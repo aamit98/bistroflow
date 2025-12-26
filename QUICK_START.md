@@ -28,9 +28,21 @@ cd backend\adss-backend
 
 ## 🚀 Start the Servers
 
+### Configure JWT secret (one-time)
+```powershell
+$bytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$env:ADSS_JWT_SECRET = [Convert]::ToBase64String($bytes)
+# Optional: persist for future shells
+setx ADSS_JWT_SECRET $env:ADSS_JWT_SECRET
+```
+
+> The backend refuses to start without `ADSS_JWT_SECRET`. Generate a new value per environment and keep it secret.
+
 ### Terminal 1: Start Backend
 ```powershell
 cd backend\adss-backend
+$env:SPRING_PROFILES_ACTIVE="dev"
 .\mvnw.cmd spring-boot:run
 ```
 

@@ -1,0 +1,152 @@
+.schedule-builder {
+  padding: 1.25rem;
+}
+
+.schedule-builder .builder-card {
+  background: rgba(17, 24, 39, 0.92);
+  border-radius: 14px;
+  padding: 2rem;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  max-width: 960px;
+  margin: 0 auto;
+  color: #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.schedule-builder .builder-card h3 {
+  font-size: 1.3rem;
+  margin: 0;
+}
+
+.schedule-builder .subtitle {
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.schedule-builder .builder-week-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.55);
+  padding: 1rem;
+  border-radius: 12px;
+}
+
+.schedule-builder .builder-week-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.schedule-builder .builder-error {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fecdd3;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.schedule-builder .constraints-table-wrapper {
+  overflow-x: auto;
+}
+
+.schedule-builder .constraints-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.schedule-builder .constraints-table thead {
+  background: rgba(30, 41, 59, 0.7);
+}
+
+.schedule-builder .constraints-table th,
+.schedule-builder .constraints-table td {
+  padding: 0.85rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.schedule-builder .constraints-table th {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+  color: #93c5fd;
+}
+
+.schedule-builder .constraints-table tr:hover {
+  background: rgba(30, 41, 59, 0.4);
+}
+
+.schedule-builder .constraints-table select,
+.schedule-builder .constraints-table input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.8);
+  color: #e2e8f0;
+}
+
+.schedule-builder .constraints-table select:focus,
+.schedule-builder .constraints-table input:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
+}
+
+.schedule-builder .btn-remove {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  border: none;
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.schedule-builder .btn-remove:hover {
+  transform: translateY(-1px);
+  background: rgba(248, 113, 113, 0.25);
+}
+
+.schedule-builder .builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.schedule-builder .btn {
+  padding: 0.75rem 1.4rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.schedule-builder .btn-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #f8fafc;
+}
+
+.schedule-builder .btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.25);
+}
+
+.schedule-builder .btn-secondary {
+  background: rgba(37, 99, 235, 0.12);
+  color: #bfdbfe;
+}
+
+.schedule-builder .btn-secondary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.schedule-builder .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

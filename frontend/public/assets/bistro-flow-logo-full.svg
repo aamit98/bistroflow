@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="200" height="80">
+  <!-- Logo Icon -->
+  <g transform="translate(0, 0)">
+    <!-- Main "b" shape -->
+    <path d="M15 10 L15 70" stroke="#3D5A80" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- The bowl of the "b" - clock face -->
+    <circle cx="35" cy="48" r="20" fill="none" stroke="#3D5A80" stroke-width="5"/>
+    
+    <!-- Clock hands -->
+    <line x1="35" y1="48" x2="35" y2="34" stroke="#98C1A9" stroke-width="3" stroke-linecap="round"/>
+    <line x1="35" y1="48" x2="47" y2="48" stroke="#98C1A9" stroke-width="3" stroke-linecap="round"/>
+    
+    <!-- Orbital dot -->
+    <circle cx="55" cy="32" r="4" fill="#98C1A9"/>
+    
+    <!-- Accent dot -->
+    <circle cx="15" cy="24" r="3" fill="#98C1A9"/>
+  </g>
+  
+  <!-- Text: Bistro Flow -->
+  <text x="70" y="52" font-family="'Segoe UI', system-ui, sans-serif" font-size="28" font-weight="600" fill="#3D5A80">
+    <tspan>Bistro</tspan>
+    <tspan fill="#98C1A9">Flow</tspan>
+  </text>
+</svg>
